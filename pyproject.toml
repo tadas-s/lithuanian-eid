@@ -8,13 +8,17 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "pyscard (>=2.3.1,<3.0.0)"
+    "pyscard (>=2.3.1,<3.0.0)",
+    "pygobject (>=3.56.0,<4.0.0)"
 ]
 
 [tool.poetry]
 packages = [{include = "lithuanian_eid_toolbox", from = "src"}]
 
-
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+lteid_observer = 'lithuanian_eid_toolbox.observer:run'
+lteid_toolbox = 'lithuanian_eid_toolbox.toolbox:run'
