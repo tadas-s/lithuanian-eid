@@ -1,3 +1,6 @@
+import re
+import subprocess
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pkcs11
@@ -25,6 +28,34 @@ def certificate_for_authentication(certificate):
             extended_key_usage_client_auth = True
 
     return key_usage_digital_signature and extended_key_usage_client_auth
+
+def get_pin():
+    proc = subprocess.Popen(['pinentry'], text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+    proc.stdin.write("\n".join([
+        "SETTIMEOUT 60"
+        "SETPROMPT Asmens Tapatybės Kortelė",
+        "SETDESC Įveskite PIN kodą autentifikavimui",
+        "SETOK Gerai",
+        "SETCANCEL Atšaukti",
+        "GETPIN"
+    ]) + "\n")
+
+    proc.stdin.flush()
+
+    outs, errs = proc.communicate(timeout=65)
+
+    try:
+        pin_line = next(filter(lambda l: l.startswith('D '), outs.split("\n")))
+    except StopIteration:
+        return None
+
+    match = re.match('^D (\\d{6,12})$', pin_line)
+
+    if match:
+        return match[1]
+
+    return None
 
 @app.route("/Handshake/Browser", methods=["GET"])
 def handshake_browser():
@@ -85,21 +116,30 @@ def signing_sign():
 
     if not token_to_use:
         return jsonify({
-            "result": None,
-            "exception": None,
-            "errorCode": None,
-            "log": None
+            "exception": "Nerastas tinkamas sertifikatas",
+            "errorCode": "bad_cert"
         })
 
-    with token_to_use.open(user_pin=os.getenv('USER_PIN')) as session:
-        private_key = session.get_key(object_class=ObjectClass.PRIVATE_KEY)
-        signature = private_key.sign(data_to_sign, mechanism=Mechanism.ECDSA)
+    pin = get_pin()
 
+    if not pin:
         return jsonify({
-            "result": b64encode(signature).decode('utf-8'),
-            "exception": None,
-            "errorCode": None,
-            "log": None
+            "exception": "Neįvestas/neteisingas PIN",
+            "errorCode": "bad_pin"
+        })
+
+    try:
+        with token_to_use.open(user_pin=pin) as session:
+            private_key = session.get_key(object_class=ObjectClass.PRIVATE_KEY)
+            signature = private_key.sign(data_to_sign, mechanism=Mechanism.ECDSA)
+
+            return jsonify({
+                "result": b64encode(signature).decode('utf-8')
+            })
+    except pkcs11.exceptions.PinIncorrect:
+        return jsonify({
+            "exception": "Neteisingas PIN",
+            "errorCode": "bad_pin"
         })
 
 def run():
