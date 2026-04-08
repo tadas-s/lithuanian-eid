@@ -38,9 +38,12 @@ def handshake_browser():
 def signing_select_certificate():
     for token in pkcs11_mod.get_tokens():
         with token.open() as session:
-            certificate_object = next(session.get_objects({
-                Attribute.CLASS: pkcs11.ObjectClass.CERTIFICATE
-            }))
+            try:
+                certificate_object = next(session.get_objects({
+                    Attribute.CLASS: pkcs11.ObjectClass.CERTIFICATE
+                }))
+            except StopIteration:
+                continue
 
             der = certificate_object.get_attributes([Attribute.VALUE])[Attribute.VALUE]
             certificate = Certificate.load(der)
