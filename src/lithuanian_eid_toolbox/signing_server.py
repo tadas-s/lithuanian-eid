@@ -65,6 +65,12 @@ def handshake_browser():
 # GET /Signing/SelectCertificate?childName=jonas&sessionId=null&store=usb2&purpose=authentication&withLog=false
 @app.route("/Signing/SelectCertificate", methods=["GET"])
 def signing_select_certificate():
+    if request.args.get('purpose') != 'authentication':
+        return jsonify({
+            "exception": "Galima tik autentifikacija.",
+            "errorCode": "only_authentication"
+        })
+
     for token in pkcs11_mod.get_tokens():
         with token.open() as session:
             try:
@@ -86,11 +92,8 @@ def signing_select_certificate():
                 })
 
     return jsonify({
-        "certificate": None,
-        "name": None,
-        "issuer": None,
-        "exception": "No certificates found",
-        "errorCode": "no_certificates_found"
+        "exception": "Nerastas tinkamas autentifikacijos sertifikatas. Patikrinkite ar kortelė skaitytuve ir paruošta darbui.",
+        "errorCode": "no_certificate"
     })
 
 @app.route("/Signing/Sign", methods=["POST"])
