@@ -1,13 +1,11 @@
 import re
 import subprocess
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pkcs11
 from pkcs11 import Attribute, Mechanism, ObjectClass
 from base64 import b64encode, b64decode
 from hashlib import sha256
-import os
 from asn1crypto.x509 import Certificate
 
 # Server partially implements https://elpako.lt/ software protocol for authentication.
@@ -29,13 +27,13 @@ def certificate_for_authentication(certificate):
 
     return key_usage_digital_signature and extended_key_usage_client_auth
 
-def get_pin():
+def get_pin(card_name):
     proc = subprocess.Popen(['pinentry'], text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
     proc.stdin.write("\n".join([
-        "SETTIMEOUT 60"
+        "SETTIMEOUT 60",
         "SETPROMPT Asmens Tapatybės Kortelė",
-        "SETDESC Įveskite PIN kodą autentifikavimui",
+        f"SETDESC Įveskite PIN kodą autentifikavimui%0AATK vardas: {card_name}",
         "SETOK Gerai",
         "SETCANCEL Atšaukti",
         "GETPIN"
@@ -120,7 +118,10 @@ def signing_sign():
             "errorCode": "bad_cert"
         })
 
-    pin = get_pin()
+    certificate = Certificate.load(der)
+    card_name = certificate['tbs_certificate']['subject'].native['common_name']
+
+    pin = get_pin(card_name)
 
     if not pin:
         return jsonify({
