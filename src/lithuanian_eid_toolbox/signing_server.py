@@ -55,6 +55,10 @@ def get_pin(card_name):
 
     return None
 
+@app.route("/", methods=["GET"])
+def main_index():
+    return "<p>Parašo serveris veikia.</p>"
+
 @app.route("/Handshake/Browser", methods=["GET"])
 def handshake_browser():
     # This supposed to return current user name, but it's only really
