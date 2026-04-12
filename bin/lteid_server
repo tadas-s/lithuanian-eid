@@ -1,6 +1,6 @@
-#!/home/tadas/.virtualenvs/lithuanian-eid-toolbox/bin/python
+#!/usr/bin/env python
 import sys
-from lithuanian_eid_toolbox.signing_server import run
+from lithuanian_eid.signing_server import run
 
 if __name__ == '__main__':
     sys.exit(run())

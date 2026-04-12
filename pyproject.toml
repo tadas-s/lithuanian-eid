@@ -1,5 +1,5 @@
 [project]
-name = "lithuanian-eid-toolbox"
+name = "lithuanian-eid"
 version = "0.1.0"
 description = ""
 authors = [
@@ -17,12 +17,17 @@ dependencies = [
 ]
 
 [tool.poetry]
-packages = [{include = "lithuanian_eid_toolbox", from = "src"}]
+packages = [{include = "lithuanian_eid", from = "src"}]
+include = [
+  "eid-front.png",
+  "key.pem",
+  "cert.pem"
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-lteid_toolbox = 'lithuanian_eid_toolbox.toolbox:run'
-lteid_server = 'lithuanian_eid_toolbox.signing_server:run'
+lteid_toolbox = 'lithuanian_eid.toolbox:run'
+lteid_server = 'lithuanian_eid.signing_server:run'
