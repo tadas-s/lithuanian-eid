@@ -151,4 +151,4 @@ def signing_sign():
         })
 
 def run():
-    app.run('127.0.0.1', 38888, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    app.run('127.0.0.1', 38888, ssl_context=('cert.pem', 'key.pem'))
