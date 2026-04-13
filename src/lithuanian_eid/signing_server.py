@@ -2,8 +2,7 @@ import re
 import subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pkcs11
-from pkcs11 import Attribute, Mechanism, ObjectClass
+import PyKCS11
 from base64 import b64encode, b64decode
 from hashlib import sha256
 from asn1crypto.x509 import Certificate
@@ -13,7 +12,8 @@ from asn1crypto.x509 import Certificate
 app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": "https://api.elpako.lt"}})
 
-pkcs11_mod = pkcs11.lib('/usr/lib64/opensc-pkcs11.so')
+pkcs11 = PyKCS11.PyKCS11Lib()
+pkcs11.load(pkcs11dll_filename='/usr/lib64/opensc-pkcs11.so')
 
 def certificate_for_authentication(certificate):
     key_usage_digital_signature = False
@@ -75,25 +75,29 @@ def signing_select_certificate():
             "errorCode": "only_authentication"
         })
 
-    for token in pkcs11_mod.get_tokens():
-        with token.open() as session:
-            try:
-                certificate_object = next(session.get_objects({
-                    Attribute.CLASS: pkcs11.ObjectClass.CERTIFICATE
-                }))
-            except StopIteration:
-                continue
+    slots = pkcs11.getSlotList(tokenPresent=True)
 
-            der = certificate_object.get_attributes([Attribute.VALUE])[Attribute.VALUE]
-            certificate = Certificate.load(der)
+    for slot in slots:
+        session = pkcs11.openSession(slot)
+        certificates = session.findObjects([(PyKCS11.CKA_CLASS, PyKCS11.CKO_CERTIFICATE)])
 
-            if certificate_for_authentication(certificate):
-                return jsonify({
-                    "certificate": b64encode(der).decode('utf-8'),
-                    "name": certificate['tbs_certificate']['subject'].native['common_name'],
-                    "issuer": certificate['tbs_certificate']['issuer'].native['organization_name'],
-                    "validTo": certificate['tbs_certificate']['validity']['not_after'].native.date().isoformat()
-                })
+        if len(certificates) == 0:
+            session.closeSession()
+            continue
+
+        der = bytes(certificates[0].to_dict()['CKA_VALUE'])
+
+        session.closeSession()
+
+        certificate = Certificate.load(der)
+
+        if certificate_for_authentication(certificate):
+            return jsonify({
+                "certificate": b64encode(der).decode('utf-8'),
+                "name": certificate['tbs_certificate']['subject'].native['common_name'],
+                "issuer": certificate['tbs_certificate']['issuer'].native['organization_name'],
+                "validTo": certificate['tbs_certificate']['validity']['not_after'].native.date().isoformat()
+            })
 
     return jsonify({
         "exception": "Nerastas tinkamas autentifikacijos sertifikatas. Patikrinkite ar kortelė skaitytuve ir paruošta darbui.",
@@ -105,21 +109,29 @@ def signing_sign():
     request_params = request.get_json()
     certificate_to_use = b64decode(request_params['certificate'])
     data_to_sign = sha256(b64decode(request_params['dtbs'])).digest()
-    token_to_use = None
+    slot_to_use = None
+    session = None
+    der = None
 
-    for token in pkcs11_mod.get_tokens():
-        with token.open() as session:
-            certificate_object = next(session.get_objects({
-                Attribute.CLASS: pkcs11.ObjectClass.CERTIFICATE
-            }))
+    slots = pkcs11.getSlotList(tokenPresent=True)
 
-            der = certificate_object.get_attributes([Attribute.VALUE])[Attribute.VALUE]
+    for slot in slots:
+        session = pkcs11.openSession(slot)
+        certificates = session.findObjects([(PyKCS11.CKA_CLASS, PyKCS11.CKO_CERTIFICATE)])
 
-            if der == certificate_to_use:
-                token_to_use = token
-                break
+        if len(certificates) == 0:
+            session.closeSession()
+            continue
 
-    if not token_to_use:
+        der = bytes(certificates[0].to_dict()['CKA_VALUE'])
+
+        session.closeSession()
+
+        if der == certificate_to_use:
+            slot_to_use = slot
+            break
+
+    if slot_to_use is None:
         return jsonify({
             "exception": "Nerastas tinkamas sertifikatas",
             "errorCode": "bad_cert"
@@ -136,19 +148,37 @@ def signing_sign():
             "errorCode": "bad_pin"
         })
 
-    try:
-        with token_to_use.open(user_pin=pin) as session:
-            private_key = session.get_key(object_class=ObjectClass.PRIVATE_KEY)
-            signature = private_key.sign(data_to_sign, mechanism=Mechanism.ECDSA)
+    # Open a new session. Re-using previous session to read certificate
+    # returns CKR_GENERAL_ERROR every other time when trying to log in with pin.
+    session = pkcs11.openSession(slot_to_use)
 
-            return jsonify({
-                "result": b64encode(signature).decode('utf-8')
-            })
-    except pkcs11.exceptions.PinIncorrect:
+    try:
+        session.login(pin)
+    except PyKCS11.PyKCS11Error as e:
+        exception_description = f"Klaida: {e}"
+
+        if e.value == PyKCS11.CKR_PIN_INCORRECT:
+            exception_description = "Neteisingas PIN"
+
         return jsonify({
-            "exception": "Neteisingas PIN",
+            "exception": exception_description,
             "errorCode": "bad_pin"
         })
+
+    mechanism = PyKCS11.Mechanism(PyKCS11.CKM_ECDSA, None)
+    private_key = session.findObjects([
+        (PyKCS11.CKA_CLASS, PyKCS11.CKO_PRIVATE_KEY),
+        (PyKCS11.CKA_KEY_TYPE, PyKCS11.CKK_ECDSA),
+    ])[0]
+
+    signature = bytes(session.sign(private_key, data_to_sign, mechanism))
+
+    session.logout()
+    session.closeSession()
+
+    return jsonify({
+        "result": b64encode(signature).decode('utf-8')
+    })
 
 def run():
     app.run('127.0.0.1', 38888, ssl_context=('cert.pem', 'key.pem'))
