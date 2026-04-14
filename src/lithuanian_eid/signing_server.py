@@ -1,5 +1,4 @@
-import re
-import subprocess
+import os, pathlib, re, subprocess
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import PyKCS11
@@ -181,4 +180,8 @@ def signing_sign():
     })
 
 def run():
-    app.run('127.0.0.1', 38888, ssl_context=('cert.pem', 'key.pem'))
+    ssl_context = (
+        os.path.join(pathlib.Path(__file__).parent, 'ssl', 'cert.pem'),
+        os.path.join(pathlib.Path(__file__).parent, 'ssl', 'key.pem'),
+    )
+    app.run('127.0.0.1', 38888, ssl_context=ssl_context)

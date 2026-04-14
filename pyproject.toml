@@ -20,10 +20,7 @@ dependencies = [
 [tool.poetry]
 packages = [{include = "lithuanian_eid", from = "src"}]
 include = [
-  "tests/",
-  "eid-front.png",
-  "key.pem",
-  "cert.pem"
+  "tests/"
 ]
 
 [build-system]

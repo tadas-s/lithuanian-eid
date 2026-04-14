@@ -1,4 +1,4 @@
-import uuid
+import uuid, os, pathlib
 from smartcard.util import toBytes, toHexString
 from smartcard.CardMonitoring import CardMonitor
 from smartcard.CardType import ATRCardType
@@ -105,7 +105,9 @@ class EnterCanWindow(Gtk.ApplicationWindow):
         )
 
         eid_illustration = Gtk.Picture(
-            file=Gio.File.new_for_path('eid-front.png'),
+            file=Gio.File.new_for_path(
+                os.path.join(pathlib.Path(__file__).parent, 'images', 'eid-front.png')
+            ),
             can_shrink=True, width_request=220
         )
         top_box.append(eid_illustration)
@@ -169,8 +171,6 @@ class ToolboxApplication(Gtk.Application):
         self.add_action(enter_can_action)
 
     def do_activate(self):
-        print("do activate")
-
         self.hold()
 
         if not self.card_monitor:
