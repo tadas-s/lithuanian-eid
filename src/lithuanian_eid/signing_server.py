@@ -180,8 +180,18 @@ def signing_sign():
     })
 
 def run():
+    from werkzeug.serving import run_simple
+
     ssl_context = (
         os.path.join(pathlib.Path(__file__).parent, 'ssl', 'cert.pem'),
         os.path.join(pathlib.Path(__file__).parent, 'ssl', 'key.pem'),
     )
-    app.run('127.0.0.1', 38888, ssl_context=ssl_context)
+
+    run_simple(
+        hostname='127.0.0.1',
+        port=38888,
+        application=app,
+        ssl_context=ssl_context,
+        threaded=False,
+        processes=1
+    )
