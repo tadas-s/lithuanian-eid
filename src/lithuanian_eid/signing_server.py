@@ -54,6 +54,29 @@ def get_pin(card_name):
 
     return None
 
+def open_session_with_pin(slot, pin):
+    tries = 3
+    session = None
+
+    while tries > 0:
+        try:
+            print(f"Trying to open session with pin ({tries})")
+            if session is not None:
+                session.closeSession()
+
+            session = pkcs11.openSession(slot, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
+            session.login(pin)
+
+            return session
+        except PyKCS11.PyKCS11Error as e:
+            tries = tries - 1
+
+            # Only retry one specific CKR_GENERAL_ERROR
+            if e.value != PyKCS11.CKR_GENERAL_ERROR:
+                raise e
+
+    return session
+
 @app.route("/", methods=["GET"])
 def main_index():
     return "<p>Parašo serveris veikia.</p>"
@@ -109,6 +132,7 @@ def signing_sign():
     certificate_to_use = b64decode(request_params['certificate'])
     data_to_sign = sha256(b64decode(request_params['dtbs'])).digest()
     slot_to_use = None
+    session = None
     der = None
 
     slots = pkcs11.getSlotList(tokenPresent=True)
@@ -146,12 +170,8 @@ def signing_sign():
             "errorCode": "bad_pin"
         })
 
-    # Open a new session. Re-using previous session to read certificate
-    # returns CKR_GENERAL_ERROR every other time when trying to log in with pin.
-    session = pkcs11.openSession(slot_to_use, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
-
     try:
-        session.login(pin)
+        session = open_session_with_pin(slot_to_use, pin)
     except PyKCS11.PyKCS11Error as e:
         exception_description = f"Klaida: {e}"
 
