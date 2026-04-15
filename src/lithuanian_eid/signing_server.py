@@ -77,7 +77,7 @@ def signing_select_certificate():
     slots = pkcs11.getSlotList(tokenPresent=True)
 
     for slot in slots:
-        session = pkcs11.openSession(slot)
+        session = pkcs11.openSession(slot, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
         certificates = session.findObjects([(PyKCS11.CKA_CLASS, PyKCS11.CKO_CERTIFICATE)])
 
         if len(certificates) == 0:
@@ -109,13 +109,12 @@ def signing_sign():
     certificate_to_use = b64decode(request_params['certificate'])
     data_to_sign = sha256(b64decode(request_params['dtbs'])).digest()
     slot_to_use = None
-    session = None
     der = None
 
     slots = pkcs11.getSlotList(tokenPresent=True)
 
     for slot in slots:
-        session = pkcs11.openSession(slot)
+        session = pkcs11.openSession(slot, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
         certificates = session.findObjects([(PyKCS11.CKA_CLASS, PyKCS11.CKO_CERTIFICATE)])
 
         if len(certificates) == 0:
@@ -149,7 +148,7 @@ def signing_sign():
 
     # Open a new session. Re-using previous session to read certificate
     # returns CKR_GENERAL_ERROR every other time when trying to log in with pin.
-    session = pkcs11.openSession(slot_to_use)
+    session = pkcs11.openSession(slot_to_use, PyKCS11.CKF_SERIAL_SESSION | PyKCS11.CKF_RW_SESSION)
 
     try:
         session.login(pin)
