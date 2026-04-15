@@ -20,7 +20,8 @@ dependencies = [
 [tool.poetry]
 packages = [{include = "lithuanian_eid", from = "src"}]
 include = [
-  "tests/"
+  "tests/",
+  "support/",
 ]
 
 [build-system]
