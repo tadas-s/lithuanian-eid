@@ -1,4 +1,4 @@
-import uuid, os, pathlib
+import uuid, os, pathlib, sys, logging
 from smartcard.util import toBytes, toHexString
 from smartcard.CardMonitoring import CardMonitor
 from smartcard.CardType import ATRCardType
@@ -6,6 +6,8 @@ from smartcard.CardType import ATRCardType
 import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Gio, GObject
+
+logger = logging.getLogger(__name__)
 
 LTEID_TOOL = "/usr/bin/lteid-tool"
 
@@ -150,32 +152,74 @@ class EnterCanWindow(Gtk.ApplicationWindow):
 
     def on_can_verify_done(self, _sender, status_code):
         if status_code == CanVerify.STATUS_SUCCESS:
-            print("CAN verified, card is ready for use")
+            logger.info("CAN verified, card is ready for use")
             self.set_child(self.label_view("Card is ready for use."))
         else:
-            print("CAN verification failed")
+            logger.info("CAN verification failed")
             self.set_child(self.enter_can_view())
             self._can_entry.grab_focus()
 
 class ToolboxApplication(Gtk.Application):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.window = None
         self.notification_id = None
         self.card_monitor = None
 
-        super().__init__(application_id="lt.yoyo.LithuanianEIDObserver")
+        super().__init__(
+            *args,
+            application_id="lt.yoyo.lteid",
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+            **kwargs
+        )
         GLib.set_application_name('Lithuanian eID')
 
         enter_can_action = Gio.SimpleAction(name="enter-can")
         enter_can_action.connect("activate", self.enter_can)
         self.add_action(enter_can_action)
 
-    def do_activate(self):
-        self.hold()
+        service_option = GLib.OptionEntry()
+        service_option.long_name = "service"
+        service_option.short_name = ord('s')
+        service_option.description = "Run in background service mode without opening the main window"
 
-        if not self.card_monitor:
-            self.card_monitor = CardMonitor()
-            self.card_monitor.addObserver(self)
+        verbose_option = GLib.OptionEntry()
+        verbose_option.long_name = "verbose"
+        verbose_option.short_name = ord('v')
+        verbose_option.description = "Informational log output to stdout"
+
+        debug_option = GLib.OptionEntry()
+        debug_option.long_name = "debug"
+        debug_option.short_name = ord('d')
+        debug_option.description = "Debug log output to stdout"
+
+        self.add_main_option_entries([service_option, verbose_option, debug_option])
+
+    def do_command_line(self, command_line):
+        options = command_line.get_options_dict()
+        options = options.end().unpack()
+
+        if "verbose" in options:
+            logger.level = logging.INFO
+
+        if "debug" in options:
+            logger.level = logging.DEBUG
+
+        if "service" in options:
+            logger.info("starting in service mode")
+            self.hold()
+        else:
+            self.activate()
+
+        return 0
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+
+        self.card_monitor = CardMonitor()
+        self.card_monitor.addObserver(self)
+
+    def do_activate(self):
+        self.enter_can(None, None)
 
     def enter_can(self, _action, _):
         self.window = EnterCanWindow(application=self)
@@ -195,7 +239,7 @@ class ToolboxApplication(Gtk.Application):
                 GLib.idle_add(self.on_unsupported_inserted, card.atr)
 
     def on_lteid_inserted(self, atr):
-        print(f"lteid card inserted, atr: {toHexString(atr)}")
+        logger.info(f"lteid card inserted, atr: {toHexString(atr)}")
         status_check = CardStatusCheck()
         status_check.connect('status-code', self.on_card_status_determined)
         status_check.run()
@@ -203,11 +247,11 @@ class ToolboxApplication(Gtk.Application):
     def on_card_status_determined(self, _sender, status_code):
         match status_code:
             case CardStatusCheck.STATUS_ERROR:
-                print(f"Card status check returned error {status_code}")
+                logger.info(f"Card status check returned error {status_code}")
             case CardStatusCheck.STATUS_READY:
-                print(f"lteid card ready for use")
+                logger.info(f"lteid card ready for use")
             case _:
-                print(f"CAN not stored or not configured, return code: {status_code}")
+                logger.info(f"CAN not stored or not configured, return code: {status_code}")
 
                 notification = Gio.Notification.new("Lithuanian EID inserted")
                 notification.set_body("Enter card access number (CAN) to get started.")
@@ -220,10 +264,10 @@ class ToolboxApplication(Gtk.Application):
                 self.send_notification(self.notification_id, notification)
 
     def on_unsupported_inserted(self, _atr):
-        print("unrecognised card inserted")
+        logger.info("unrecognised card inserted")
 
     def on_card_removed(self, atr):
-        print(f"card removed, atr: {toHexString(atr)}")
+        logger.info(f"card removed, atr: {toHexString(atr)}")
 
         if self.notification_id:
             self.withdraw_notification(self.notification_id)
@@ -238,5 +282,6 @@ class ToolboxApplication(Gtk.Application):
         self.quit()
 
 def run():
+    logging.basicConfig(level=logging.WARN)
     app = ToolboxApplication()
-    app.run()
+    app.run(sys.argv)

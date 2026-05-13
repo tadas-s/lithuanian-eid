@@ -34,6 +34,8 @@ authentication and electronic signatures.
 %pyproject_install
 install -D -m 644 support/lteid-server.service %{buildroot}%{_userunitdir}/lteid-server.service
 install -D -m 644 support/lteid-toolbox.service %{buildroot}%{_userunitdir}/lteid-toolbox.service
+install -D -m 644 support/lt.yoyo.lteid.svg %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/lt.yoyo.lteid.svg
+install -D -m 644 support/lt.yoyo.lteid.desktop %{buildroot}%{_datadir}/applications/lt.yoyo.lteid.desktop
 
 %check
 %pytest
@@ -63,6 +65,8 @@ install -D -m 644 support/lteid-toolbox.service %{buildroot}%{_userunitdir}/ltei
 %{_bindir}/lteid_toolbox
 %{_userunitdir}/lteid-server.service
 %{_userunitdir}/lteid-toolbox.service
+%{_datadir}/icons/hicolor/48x48/apps/lt.yoyo.lteid.svg
+%{_datadir}/applications/lt.yoyo.lteid.desktop
 
 %changelog
 * Sat Mar 01 2025 Tadas Sasnauskas <tadas@yoyo.lt> - 0.1.0

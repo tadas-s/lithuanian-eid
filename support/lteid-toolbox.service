@@ -6,7 +6,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/lteid_toolbox
+ExecStart=/usr/bin/lteid_toolbox --service --verbose
 
 [Install]
 WantedBy=graphical-session.target

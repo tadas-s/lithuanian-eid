@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Lithuanian eID
+Comment=Lithuanian eID support application
+Exec=/usr/bin/lteid_toolbox
+Icon=/usr/share/icons/hicolor/48x48/apps/lt.yoyo.lteid.svg
+Terminal=false
+Type=Application
+StartupNotify=true
+DBusActivatable=true
+X-GNOME-UsesNotifications=true
