@@ -219,11 +219,21 @@ class ToolboxApplication(Gtk.Application):
         self.card_monitor.addObserver(self)
 
     def do_activate(self):
-        self.enter_can(None, None)
+        self.window = EnterCanWindow(application=self)
+        self.window.connect("close-request", self.on_close_window)
+        self.window.set_child(self.window.label_view("Please wait…"))
+
+        status_check = CardStatusCheck()
+        status_check.connect('status-code', self.on_card_status_determined)
+        status_check.run()
 
     def enter_can(self, _action, _):
         self.window = EnterCanWindow(application=self)
+        self.window.connect("close-request", self.on_close_window)
         self.window.set_child(self.window.enter_can_view())
+
+    def on_close_window(self, _action):
+        self.window = None
 
     def update(self, _observable, handlers):
         (inserted_cards, removed_cards) = handlers
@@ -250,21 +260,34 @@ class ToolboxApplication(Gtk.Application):
                 logger.info(f"Card status check returned error {status_code}")
             case CardStatusCheck.STATUS_READY:
                 logger.info(f"lteid card ready for use")
+
+                if self.window:
+                    self.window.set_child(
+                        self.window.label_view("Card is ready for use.")
+                    )
             case _:
                 logger.info(f"CAN not stored or not configured, return code: {status_code}")
 
-                notification = Gio.Notification.new("Lithuanian EID inserted")
-                notification.set_body("Enter card access number (CAN) to get started.")
-                notification.set_default_action("app.enter-can")
+                if self.window:
+                    self.window.set_child(self.window.enter_can_view())
+                else:
+                    notification = Gio.Notification.new("Lithuanian EID inserted")
+                    notification.set_body("Enter card access number (CAN) to get started.")
+                    notification.set_default_action("app.enter-can")
 
-                if self.notification_id:
-                    self.withdraw_notification(self.notification_id)
+                    if self.notification_id:
+                        self.withdraw_notification(self.notification_id)
 
-                self.notification_id = str(uuid.uuid4())
-                self.send_notification(self.notification_id, notification)
+                    self.notification_id = str(uuid.uuid4())
+                    self.send_notification(self.notification_id, notification)
 
     def on_unsupported_inserted(self, _atr):
         logger.info("unrecognised card inserted")
+
+        if self.window:
+            self.window.set_child(
+                self.window.label_view("Unrecognised card inserted")
+            )
 
     def on_card_removed(self, atr):
         logger.info(f"card removed, atr: {toHexString(atr)}")
@@ -274,8 +297,9 @@ class ToolboxApplication(Gtk.Application):
             self.notification_id = None
 
         if self.window:
-            self.window.close()
-            self.window = None
+            self.window.set_child(
+                self.window.label_view("Insert card into the card reader")
+            )
 
     def on_close(self, _event):
         self.card_monitor.deleteObserver(self)
