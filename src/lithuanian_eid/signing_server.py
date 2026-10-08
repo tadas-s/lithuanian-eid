@@ -90,7 +90,7 @@ def handshake_browser():
 
 @app.route("/Signing/GetVersion", methods=["GET"])
 def signing_get_version():
-    return "3.3.8"
+    return "3.3.9"
 
 # GET /Signing/SelectCertificate?childName=jonas&sessionId=null&store=usb2&purpose=authentication&withLog=false
 @app.route("/Signing/SelectCertificate", methods=["GET"])
