@@ -189,6 +189,8 @@ class ToolboxApplication(Gtk.Application):
         enter_can_action.connect("activate", self.enter_can)
         self.add_action(enter_can_action)
 
+        self.set_accels_for_action("window.close", ["Escape"])
+
         service_option = GLib.OptionEntry()
         service_option.long_name = "service"
         service_option.short_name = ord('s')
