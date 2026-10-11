@@ -1,3 +1,4 @@
+import typing
 import uuid, os, pathlib, sys, logging
 from smartcard.util import toBytes, toHexString
 from smartcard.CardMonitoring import CardMonitor
@@ -17,6 +18,7 @@ LTEID_CARD_TYPE = ATRCardType(
 )
 
 class CardStatusCheck(GObject.GObject):
+    STATUS_NO_CARD=-2
     STATUS_ERROR=-1
     STATUS_READY=0
 
@@ -24,17 +26,27 @@ class CardStatusCheck(GObject.GObject):
         'status-code': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (GObject.TYPE_INT, ))
     }
 
+    def __init__(self, **kwargs: typing.Any):
+        self.fdout = None
+        self.fderr = None
+        super().__init__(**kwargs)
+
     def run(self):
-        pid, idin, idout, iderr = GLib.spawn_async(
+        pid, idin, self.fdout, self.fderr = GLib.spawn_async(
             [LTEID_TOOL],
             flags=GLib.SPAWN_DO_NOT_REAP_CHILD, standard_output=True, standard_error=True
         )
         GLib.child_watch_add(pid, self.on_done)
 
     def on_done(self, _pid, retval, *_argv):
-        status_code = retval / 256 if retval == 0 or retval > 255 else self.STATUS_ERROR
-        self.emit("status-code", status_code)
+        err_output = os.read(self.fderr, 1024).decode("utf-8")
 
+        if "Card not present" in err_output:
+            status_code = self.STATUS_NO_CARD
+        else:
+            status_code = retval / 256 if retval == 0 or retval > 255 else self.STATUS_ERROR
+
+        self.emit("status-code", status_code)
 
 class CanVerify(GObject.GObject):
     STATUS_FAIL=-1
@@ -258,6 +270,13 @@ class ToolboxApplication(Gtk.Application):
         match status_code:
             case CardStatusCheck.STATUS_ERROR:
                 logger.info(f"Card status check returned error {status_code}")
+            case CardStatusCheck.STATUS_NO_CARD:
+                logger.info(f"No card in the reader.")
+
+                if self.window:
+                    self.window.set_child(
+                        self.window.label_view("Insert card into the card reader")
+                    )
             case CardStatusCheck.STATUS_READY:
                 logger.info(f"lteid card ready for use")
 
