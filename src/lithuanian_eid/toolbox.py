@@ -155,6 +155,10 @@ class EnterCanWindow(Gtk.ApplicationWindow):
 
         return self._enter_can_view
 
+    def show_enter_can_view(self):
+        self.set_child(self.enter_can_view())
+        self._can_entry.grab_focus()
+
     def on_can_verify(self, _sender):
         can_verify = CanVerify(self._can_entry.get_text())
         can_verify.connect('verify-done', self.on_can_verify_done)
@@ -168,8 +172,7 @@ class EnterCanWindow(Gtk.ApplicationWindow):
             self.set_child(self.label_view("Card is ready for use."))
         else:
             logger.info("CAN verification failed")
-            self.set_child(self.enter_can_view())
-            self._can_entry.grab_focus()
+            self.show_enter_can_view()
 
 class ToolboxApplication(Gtk.Application):
     def __init__(self, *args, **kwargs):
@@ -244,7 +247,7 @@ class ToolboxApplication(Gtk.Application):
     def enter_can(self, _action, _):
         self.window = EnterCanWindow(application=self)
         self.window.connect("close-request", self.on_close_window)
-        self.window.set_child(self.window.enter_can_view())
+        self.window.show_enter_can_view()
 
     def on_close_window(self, _action):
         self.window = None
@@ -290,7 +293,7 @@ class ToolboxApplication(Gtk.Application):
                 logger.info(f"CAN not stored or not configured, return code: {status_code}")
 
                 if self.window:
-                    self.window.set_child(self.window.enter_can_view())
+                    self.window.show_enter_can_view()
                 else:
                     notification = Gio.Notification.new("Lithuanian EID inserted")
                     notification.set_body("Enter card access number (CAN) to get started.")
