@@ -1,12 +1,13 @@
 [Unit]
 Description=Lithuanian eID toolbox
-StopWhenUnneeded=yes
 BindsTo=graphical-session.target
 After=graphical-session.target
+ConditionEnvironment=XDG_SESSION_CLASS=user
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/lteid_toolbox --service --verbose
+Restart=on-failure
 
 [Install]
 WantedBy=graphical-session.target
