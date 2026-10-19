@@ -1,0 +1,2 @@
+enable lteid-server.service
+enable lteid-toolbox.service

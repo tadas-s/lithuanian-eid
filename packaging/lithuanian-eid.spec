@@ -11,6 +11,7 @@ Source:         %{url}/archive/v%{version}/lithuanian_eid-%{version}.tar.gz
 
 BuildArch:      noarch
 BuildRequires:  python%{python3_pkgversion}-devel, systemd-rpm-macros
+BuildRequires:  python3dist(pytest)
 Requires:       opensc >= 0.27, pinentry
 
 %generate_buildrequires
@@ -36,6 +37,7 @@ install -D -m 644 support/lteid-server.service %{buildroot}%{_userunitdir}/lteid
 install -D -m 644 support/lteid-toolbox.service %{buildroot}%{_userunitdir}/lteid-toolbox.service
 install -D -m 644 support/lt.yoyo.lteid.svg %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/lt.yoyo.lteid.svg
 install -D -m 644 support/lt.yoyo.lteid.desktop %{buildroot}%{_datadir}/applications/lt.yoyo.lteid.desktop
+install -D -m 644 support/80-lithuanian-eid.preset %{buildroot}%{_userpresetdir}/80-lithuanian-eid.preset
 
 %check
 %pytest
@@ -65,6 +67,7 @@ install -D -m 644 support/lt.yoyo.lteid.desktop %{buildroot}%{_datadir}/applicat
 %{_bindir}/lteid_toolbox
 %{_userunitdir}/lteid-server.service
 %{_userunitdir}/lteid-toolbox.service
+%{_userpresetdir}/80-lithuanian-eid.preset
 %{_datadir}/icons/hicolor/48x48/apps/lt.yoyo.lteid.svg
 %{_datadir}/applications/lt.yoyo.lteid.desktop
 
